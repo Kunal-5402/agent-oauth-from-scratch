@@ -1,0 +1,97 @@
+# ---------------------------------------------------------------
+# Keys and secrets. This is an auth server, so this block matters
+# more here than the rest of the file put together.
+# ---------------------------------------------------------------
+*.pem
+*.key
+*.crt
+*.csr
+*.der
+*.p12
+*.pfx
+*.jwk
+*.jwks
+keys/
+secrets/
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# Testing and coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.hypothesis/
+*.cover
+
+# Type checkers and linters
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pyre/
+.pytype/
+
+# ---------------------------------------------------------------
+# Local state. The server writes issued tokens, consumed codes and
+# replay caches here. None of it belongs in the repository.
+# ---------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+data/
+.local/
+*.log
+
+# ---------------------------------------------------------------
+# Editors and operating systems
+# ---------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------
+# Notebooks, used for poking at tokens by hand
+# ---------------------------------------------------------------
+.ipynb_checkpoints/
