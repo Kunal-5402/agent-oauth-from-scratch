@@ -12,8 +12,26 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.0.0",
     "pytest>=8.3.0",
+    "ruff>=0.9.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Do not format Python samples inside Markdown. The roadmap documents align
+# comments deliberately to point at a specific line.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+# S is flake8-bandit. This repository is a security exercise, so the security
+# rules run over the server source as well as the ordinary correctness rules.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, and they hold deliberate placeholder credentials.
+"tests/**" = ["S101", "S105", "S106"]

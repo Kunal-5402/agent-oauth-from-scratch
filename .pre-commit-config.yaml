@@ -1,0 +1,22 @@
+# Install the hooks one time with: uv run pre-commit install
+# Run them over the whole repository with: uv run pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # This repository is an authorization server. A committed private key is
+      # the worst mistake available here, so this hook runs first.
+      - id: detect-private-key
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

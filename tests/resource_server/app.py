@@ -60,7 +60,9 @@ def _require_scope(claims: dict[str, Any], required_scope: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="insufficient scope",
-            headers={"WWW-Authenticate": f'Bearer error="insufficient_scope", scope="{required_scope}"'},
+            headers={
+                "WWW-Authenticate": f'Bearer error="insufficient_scope", scope="{required_scope}"'
+            },
         )
 
 

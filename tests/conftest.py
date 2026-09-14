@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import socket
 import threading
 import time
 from collections.abc import Generator
+from dataclasses import dataclass
 
 import httpx
 import pytest
@@ -46,9 +46,7 @@ class LiveServer:
         host, port = self._socket.getsockname()
         self.base_url = f"http://{host}:{port}"
         self._readiness_path = readiness_path
-        self._server = uvicorn.Server(
-            uvicorn.Config(app, log_level="warning", access_log=False)
-        )
+        self._server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))
         self._thread = threading.Thread(
             target=self._server.run,
             kwargs={"sockets": [self._socket]},

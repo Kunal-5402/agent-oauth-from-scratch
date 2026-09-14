@@ -102,7 +102,9 @@ class KeyStore:
         try:
             key = serialization.load_pem_private_key(pem, password=None)
         except (TypeError, ValueError) as exc:
-            raise KeyStoreError("configured signing key is not a valid unencrypted PEM key") from exc
+            raise KeyStoreError(
+                "configured signing key is not a valid unencrypted PEM key"
+            ) from exc
 
         self._validate_private_key(key)
         return key
@@ -169,4 +171,3 @@ class KeyStore:
         """Keep locally generated private keys owner-accessible on POSIX hosts."""
         if os.name == "posix":
             self.directory.chmod(0o700)
-        

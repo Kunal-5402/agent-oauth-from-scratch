@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Iterable
 
 import jwt
 
@@ -42,7 +42,7 @@ class ClientRegistry:
 
     # Compared against when the client ID is unknown, so both failure paths run
     # the same constant-time comparison. The value itself is never a secret.
-    _ABSENT_CLIENT_SECRET = "absent-client-placeholder-secret"
+    _ABSENT_CLIENT_SECRET = "absent-client-placeholder-secret"  # noqa: S105 - a public placeholder
 
     def __init__(self, clients: Iterable[RegisteredClient]) -> None:
         registered_clients = tuple(clients)
@@ -56,9 +56,7 @@ class ClientRegistry:
         # Always compare a secret, even for an unknown client ID. An early
         # return there would make the response time enumerate valid client IDs.
         # Compare bytes, because compare_digest rejects non-ASCII text.
-        expected_secret = (
-            client.client_secret if client is not None else self._ABSENT_CLIENT_SECRET
-        )
+        expected_secret = client.client_secret if client is not None else self._ABSENT_CLIENT_SECRET
         secret_matches = secrets.compare_digest(
             client_secret.encode("utf-8"),
             expected_secret.encode("utf-8"),

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import jwt
 import pytest
-import httpx
 
-def test_client_credentials_token_authorizes_an_independent_resource_server(integration_environment):
+
+def test_client_credentials_token_authorizes_an_independent_resource_server(
+    integration_environment,
+):
     response = integration_environment.oauth_client.client_credentials(
         client_id="reporting-agent",
         client_secret="test-only-secret",
@@ -94,7 +97,9 @@ def test_client_with_no_allowed_scopes_cannot_receive_authority(integration_envi
     ],
 )
 def test_token_endpoint_returns_standard_errors(integration_environment, data, status_code, error):
-    response = httpx.post(f"{integration_environment.authorization_server_url}/oauth/token", data=data)
+    response = httpx.post(
+        f"{integration_environment.authorization_server_url}/oauth/token", data=data
+    )
 
     assert response.status_code == status_code
     assert response.json()["error"] == error

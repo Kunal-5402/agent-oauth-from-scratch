@@ -4,7 +4,9 @@ import httpx
 
 
 def test_jwks_publishes_only_the_public_es256_key(integration_environment):
-    response = httpx.get(f"{integration_environment.authorization_server_url}/.well-known/jwks.json")
+    response = httpx.get(
+        f"{integration_environment.authorization_server_url}/.well-known/jwks.json"
+    )
 
     assert response.status_code == 200
     key = response.json()["keys"][0]
@@ -23,7 +25,10 @@ def test_metadata_describes_the_running_authorization_server(integration_environ
     assert response.status_code == 200
     metadata = response.json()
     assert metadata["issuer"] == integration_environment.settings.issuer
-    assert metadata["token_endpoint"] == f"{integration_environment.authorization_server_url}/oauth/token"
+    assert (
+        metadata["token_endpoint"]
+        == f"{integration_environment.authorization_server_url}/oauth/token"
+    )
     assert metadata["jwks_uri"] == (
         f"{integration_environment.authorization_server_url}/.well-known/jwks.json"
     )

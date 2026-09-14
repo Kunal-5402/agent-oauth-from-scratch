@@ -102,7 +102,9 @@ class AuthorizationServerVerifier:
                 metadata_response.raise_for_status()
                 metadata = metadata_response.json()
                 if metadata.get("issuer") != self._issuer:
-                    raise TokenValidationError("discovered issuer does not match the configured issuer")
+                    raise TokenValidationError(
+                        "discovered issuer does not match the configured issuer"
+                    )
 
                 jwks_uri = metadata.get("jwks_uri")
                 if not isinstance(jwks_uri, str):
@@ -134,6 +136,4 @@ class AuthorizationServerVerifier:
             fetched_at = time.monotonic()
             self._keys_by_kid = parsed_keys
             self._cache_expires_at = fetched_at + self._cache_ttl_seconds
-            self._earliest_next_refresh_at = (
-                fetched_at + self._forced_refresh_interval_seconds
-            )
+            self._earliest_next_refresh_at = fetched_at + self._forced_refresh_interval_seconds

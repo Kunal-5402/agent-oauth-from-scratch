@@ -122,6 +122,28 @@ curl --data-urlencode grant_type=client_credentials \
 
 Run the test suite with `uv run pytest`.
 
+## Checks
+
+Install the pre-commit hooks one time:
+
+```bash
+uv run pre-commit install
+```
+
+Every commit then runs `ruff check`, `ruff format`, and a `detect-private-key`
+scan. The last one matters most here: this repository is an authorization
+server, so a committed private key is the worst available mistake.
+
+Run the same checks over the whole repository at any time:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+GitHub Actions runs the lint, the format check, the test suite, and the
+private-key scan on every push to `main` and on every pull request. See
+[.github/workflows/ci.yaml](.github/workflows/ci.yaml).
+
 ## Why the disclaimer is at the top
 
 Because building an OAuth server is a security-critical activity. This project

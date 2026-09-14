@@ -22,7 +22,9 @@ class OAuthClient:
         response.raise_for_status()
         metadata = response.json()
         if metadata.get("issuer") != self.issuer:
-            raise ValueError("authorization-server metadata issuer does not match the configured issuer")
+            raise ValueError(
+                "authorization-server metadata issuer does not match the configured issuer"
+            )
         return metadata
 
     def client_credentials(
