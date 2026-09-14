@@ -1,13 +1,18 @@
-# agent-oauth-from-scratch
+# Agent OAuth Authorization Server
 
-> **This is a learning implementation. Do not use it in production.**
+> **Security-focused reference implementation. Just for learning and fun. Not approved for production use.**
 
-An OAuth 2.1 authorization server built from scratch in Python, to understand how
-authority travels down a chain of agents without growing on the way.
+An OAuth 2.1 authorization server built in Python to make agent delegation
+concrete: authority should travel through a chain of agents without growing at
+each hop.
 
-I spent six weeks reading the specifications and writing notes on them. Reading is
-not knowing. This is me finding out which parts I actually understood, by building
-them and watching them break.
+The implementation uses standard cryptographic libraries rather than an OAuth
+server framework. The objective is a small, readable reference for the security
+properties that matter in agentic systems: distinct agent identity, attenuated
+delegation, verifiable actor chains, and deliberate revocation semantics.
+
+Start with the [architecture](docs/architecture.md), [design notes](docs/design.md),
+and [roadmap](roadmap/README.md).
 
 ## Why not just use Keycloak or Ory
 
@@ -57,14 +62,34 @@ with [roadmap/README.md](roadmap/README.md).
 
 ## What works today
 
-Nothing yet. Phase 1 is in progress.
+The first Phase 1 slice is implemented:
 
-This section gets updated honestly as things land. If a phase is half done it says
-half done.
+- `GET /.well-known/jwks.json` publishes a public ES256 P-256 JWK.
+- `GET /.well-known/oauth-authorization-server` publishes OAuth AS metadata.
+- `POST /oauth/token` supports `client_credentials` with form-body client
+  authentication (`client_secret_post`).
+- Tokens are ES256 JWTs with `iss`, `sub`, `aud`, `iat`, `exp`, `jti`, and an
+  attenuated `scope`; their signatures can be independently verified from JWKS.
+- Integration tests run a real HTTP OAuth client, authorization server, and
+  independent FastAPI resource server on loopback TCP sockets.
 
-## Specifications implemented
+The server is still a learning implementation. It does not yet have a database
+backed token ledger, revocation, rate limiting, key rotation, or an audit.
 
-| Document | What it gives |
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [Architecture](docs/architecture.md) | Runtime components, trust boundaries, data flow, and source layout. |
+| [Design notes](docs/design.md) | Protocol contracts, token claims, verification rules, and test strategy. |
+| [Roadmap](roadmap/README.md) | The planned working slices and refusal-first acceptance criteria. |
+
+## Specifications in scope
+
+The roadmap derives behavior from these documents. Only the Phase 1 subset
+listed above is implemented today.
+
+| Document | What it provides |
 |---|---|
 | RFC 6749 / OAuth 2.1 draft | The core framework and the grant vocabulary |
 | RFC 7519, 7515, 7517 | JWT, signatures, and published key sets |
@@ -78,19 +103,32 @@ half done.
 ## Running it
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python -m agent_oauth.server
+uv sync --all-groups
+cp .env.example .env
+# Edit .env and replace OAUTH_CLIENT_SECRET with a long random value.
+set -a && source .env && set +a
+uv run uvicorn src.main:app --reload
 ```
 
-Instructions get real as the code does.
+In a second terminal, request a token:
+
+```bash
+curl --data-urlencode grant_type=client_credentials \
+  --data-urlencode client_id="$OAUTH_CLIENT_ID" \
+  --data-urlencode client_secret="$OAUTH_CLIENT_SECRET" \
+  --data-urlencode scope=finance:read \
+  http://127.0.0.1:8000/oauth/token
+```
+
+Run the test suite with `uv run pytest`.
 
 ## Why the disclaimer is at the top
 
-Because it is true, and because "I built an OAuth server" is a sentence that
-deserves suspicion. This server has not been audited, has not been fuzzed, has no
-rate limiting worth the name, and stores things in ways a real deployment would
-not tolerate. It exists to be read and argued with, not to guard anything.
+Because building an OAuth server is a security-critical activity. This project
+has not been audited or fuzzed; it does not yet implement durable client/token
+storage, revocation, key rotation, rate limiting, or operational monitoring. It
+is designed to make the protocol and its failure modes inspectable, not to guard
+production data.
 
 If you find something wrong, open an issue. That is the entire point of doing this
 in the open.

@@ -95,3 +95,4 @@ Thumbs.db
 # Notebooks, used for poking at tokens by hand
 # ---------------------------------------------------------------
 .ipynb_checkpoints/
+*.ipynb

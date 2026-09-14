@@ -7,6 +7,20 @@ abstraction.
 Files are named `phase-N-topic.md` so they sort in build order in any file
 listing.
 
+## Current baseline
+
+The Phase 1 foundation is partially implemented: the server persists an ES256
+P-256 signing key, publishes JWKS and authorization-server metadata, and issues
+scope-attenuated `client_credentials` tokens. The integration suite verifies
+that flow through a real HTTP client and an independent resource server.
+
+Phase 1 remains in progress because it still needs durable issuance records and
+HTTP Basic client authentication. Those omissions are deliberate and documented;
+the project does not mark a phase complete until its full refusal criteria hold.
+
+For the current component and trust-boundary view, read the
+[architecture](../architecture.md) and [design notes](../docs/design.md).
+
 ## The order, and why it is this order
 
 | # | Phase | Adds | Depends on |
