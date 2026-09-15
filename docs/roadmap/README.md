@@ -19,7 +19,7 @@ HTTP Basic client authentication. Those omissions are deliberate and documented;
 the project does not mark a phase complete until its full refusal criteria hold.
 
 For the current component and trust-boundary view, read the
-[architecture](../architecture.md) and [design notes](../docs/design.md).
+[architecture](../architecture.md) and [design notes](../design.md).
 
 ## The order, and why it is this order
 
