@@ -103,24 +103,39 @@ listed above is implemented today.
 ## Running it
 
 ```bash
-uv sync --all-groups
-cp .env.example .env
-# Edit .env and replace OAUTH_CLIENT_SECRET with a long random value.
-set -a && source .env && set +a
-uv run uvicorn src.main:app --reload
+make setup      # dependencies, pre-commit hooks, and a .env with a random secret
+make run        # http://127.0.0.1:8000
 ```
 
-In a second terminal, request a token:
+In a second terminal:
 
 ```bash
-curl --data-urlencode grant_type=client_credentials \
-  --data-urlencode client_id="$OAUTH_CLIENT_ID" \
-  --data-urlencode client_secret="$OAUTH_CLIENT_SECRET" \
-  --data-urlencode scope=finance:read \
-  http://127.0.0.1:8000/oauth/token
+make token      # request an access token from the running server
 ```
 
-Run the test suite with `uv run pytest`.
+`make` on its own lists every target:
+
+| Target | What it does |
+|---|---|
+| `make setup` | `install`, `hooks` and `env` together |
+| `make run` | Start the server with reload. `PORT=9000 make run` to change the port |
+| `make token` | Ask the running server for an access token |
+| `make test` | Run the test suite |
+| `make check` | Everything CI runs: lint, format check, tests |
+| `make clean` | Remove caches. Your signing key and `.env` are never touched |
+
+`make env` generates a random `OAUTH_CLIENT_SECRET` for you and refuses to
+overwrite a `.env` you already have.
+
+Every target is a thin wrapper over a `uv` command, so nothing here is required.
+The long form still works:
+
+```bash
+uv sync --all-groups
+set -a && source .env && set +a
+uv run uvicorn src.main:app --reload
+uv run pytest
+```
 
 ## Checks
 

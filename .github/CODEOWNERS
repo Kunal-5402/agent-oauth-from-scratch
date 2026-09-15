@@ -1,0 +1,7 @@
+# Every file in this repository is owned by the maintainer.
+#
+# Combined with the branch protection rule on main, this means a pull request
+# from anybody else needs an approving review from @Kunal-5402 before it can
+# merge. This is an authorization server; an unreviewed change to it is the
+# kind of thing this repository exists to teach people not to allow.
+* @Kunal-5402
