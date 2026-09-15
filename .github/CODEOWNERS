@@ -1,7 +1,17 @@
-# Every file in this repository is owned by the maintainer.
+# Who must approve a change, per path.
 #
-# Combined with the branch protection rule on main, this means a pull request
-# from anybody else needs an approving review from @Kunal-5402 before it can
-# merge. This is an authorization server; an unreviewed change to it is the
-# kind of thing this repository exists to teach people not to allow.
+# GitHub reads this file from the BASE branch of a pull request, never from the
+# branch being merged. A pull request that rewrites this file is still judged by
+# the version already on main, so the file cannot be used to approve itself.
+#
+# Order matters: the LAST matching pattern wins. The specific entries at the
+# bottom therefore survive any broad rule added above them later.
+
+# Everything.
 * @Kunal-5402
+
+# The files that decide who may change everything else. These are listed
+# explicitly, and last, so a narrower rule added above can never carve them out.
+/.github/CODEOWNERS       @Kunal-5402
+/.github/workflows/       @Kunal-5402
+/.pre-commit-config.yaml  @Kunal-5402
