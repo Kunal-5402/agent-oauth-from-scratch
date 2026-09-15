@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from src.api.routes import create_app
 from src.config import Settings
 from src.crypto.keys import KeyStore, SigningKey
-from src.services.token_issuer import ClientRegistry, RegisteredClient
+from src.services.clients import ClientRegistry, RegisteredClient
 from tests.oauth_client.client import OAuthClient
 from tests.resource_server.app import create_resource_server
 
