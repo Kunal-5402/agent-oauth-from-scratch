@@ -13,14 +13,11 @@ check instead of having to remember it.
 
 from __future__ import annotations
 
-import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-
-import jwt
 
 from src.config import Settings
 from src.crypto.keys import SigningKey
+from src.crypto.tokens import TokenMinter
 from src.grants.base import GrantResult
 from src.services.scopes import attenuate
 
@@ -37,25 +34,22 @@ class IssuancePipeline:
 
     def __init__(self, settings: Settings, signing_key: SigningKey) -> None:
         self._settings = settings
-        self._signing_key = signing_key
+        self._minter = TokenMinter(
+            issuer=settings.issuer,
+            signing_key=signing_key,
+            default_ttl_seconds=settings.access_token_ttl_seconds,
+        )
 
     def issue(self, result: GrantResult) -> IssuedToken:
         subject = self._resolve_identity(result)
         self._check_identity_is_usable(subject)
         ceilings = self._resolve_policy(result)
         granted_scopes = attenuate(result.requested_scopes, *ceilings)
-
-        now = datetime.now(UTC)
-        expires_at = self._expiry(now, result)
         scope = " ".join(granted_scopes)
 
         claims: dict[str, object] = {
-            "iss": self._settings.issuer,
             "sub": subject,
             "aud": self._settings.resource_audience,
-            "iat": now,
-            "exp": expires_at,
-            "jti": secrets.token_urlsafe(24),
             "client_id": result.client_id,
         }
         if scope:
@@ -66,17 +60,13 @@ class IssuancePipeline:
             claims["task_id"] = result.task_id
         claims.update(result.extra_claims)
 
-        # One call site. Extracting it into SigningKey.mint() is tracked
-        # separately, and this is the only place that has to change.
-        token = jwt.encode(
-            claims,
-            self._signing_key.private_key,
-            algorithm="ES256",
-            headers={"kid": self._signing_key.kid, "typ": "at+jwt"},
-        )
+        # The minter owns iss, iat, exp and jti, and applies the not_after
+        # ceiling. A grant cannot set its own lifetime, which is shrink rule 4
+        # held structurally rather than by a check somebody has to remember.
+        minted = self._minter.mint(claims, not_after=result.max_expires_at)
         return IssuedToken(
-            access_token=token,
-            expires_in=int((expires_at - now).total_seconds()),
+            access_token=minted.token,
+            expires_in=minted.expires_in,
             scope=scope,
         )
 
@@ -98,14 +88,3 @@ class IssuancePipeline:
     def _resolve_policy(result: GrantResult) -> tuple[frozenset[str], ...]:
         """Step 4. The authority ceilings, in the order the grant supplied them."""
         return result.ceilings
-
-    def _expiry(self, now: datetime, result: GrantResult) -> datetime:
-        """The configured lifetime, never longer than the grant allows.
-
-        ``max_expires_at`` is unused until token exchange, where a derived
-        token must never outlive the token it came from.
-        """
-        expires_at = now + timedelta(seconds=self._settings.access_token_ttl_seconds)
-        if result.max_expires_at is not None:
-            expires_at = min(expires_at, result.max_expires_at)
-        return expires_at
