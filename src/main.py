@@ -7,7 +7,7 @@ import os
 from src.api.routes import create_app
 from src.config import settings_from_environment
 from src.crypto.keys import KeyStore
-from src.services.token_issuer import ClientRegistry, RegisteredClient
+from src.services.clients import ClientRegistry, RegisteredClient
 
 
 def _required_environment(name: str) -> str:
