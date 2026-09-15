@@ -36,6 +36,7 @@ class Settings:
     key_directory: Path
     resource_audience: str
     access_token_ttl_seconds: int = 600
+    database_url: str = "postgresql://oauth:oauth@127.0.0.1:5433/oauth"
     metadata_overlay: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -43,6 +44,8 @@ class Settings:
             raise ValueError("issuer must be a non-empty URL without a trailing slash")
         if not self.resource_audience:
             raise ValueError("resource_audience must not be empty")
+        if not self.database_url:
+            raise ValueError("database_url must not be empty")
         if not 1 <= self.access_token_ttl_seconds <= 3600:
             raise ValueError("access_token_ttl_seconds must be between 1 and 3600")
 

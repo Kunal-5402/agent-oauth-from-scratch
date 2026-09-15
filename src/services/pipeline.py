@@ -18,8 +18,11 @@ from dataclasses import dataclass
 from src.config import Settings
 from src.crypto.keys import SigningKey
 from src.crypto.tokens import TokenMinter
+from src.errors import OAuthError
 from src.grants.base import GrantResult
+from src.models import ACTIVE
 from src.services.scopes import attenuate
+from src.storage.repositories import IssuanceRecord, IssuedCredentialRepository
 
 
 @dataclass(frozen=True)
@@ -32,17 +35,23 @@ class IssuedToken:
 class IssuancePipeline:
     """The single token-issuance chokepoint for every supported grant."""
 
-    def __init__(self, settings: Settings, signing_key: SigningKey) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        signing_key: SigningKey,
+        credentials: IssuedCredentialRepository,
+    ) -> None:
         self._settings = settings
+        self._credentials = credentials
         self._minter = TokenMinter(
             issuer=settings.issuer,
             signing_key=signing_key,
             default_ttl_seconds=settings.access_token_ttl_seconds,
         )
 
-    def issue(self, result: GrantResult) -> IssuedToken:
+    async def issue(self, result: GrantResult) -> IssuedToken:
         subject = self._resolve_identity(result)
-        self._check_identity_is_usable(subject)
+        self._check_identity_is_usable(result)
         ceilings = self._resolve_policy(result)
         granted_scopes = attenuate(result.requested_scopes, *ceilings)
         scope = " ".join(granted_scopes)
@@ -64,6 +73,26 @@ class IssuancePipeline:
         # ceiling. A grant cannot set its own lifetime, which is shrink rule 4
         # held structurally rather than by a check somebody has to remember.
         minted = self._minter.mint(claims, not_after=result.max_expires_at)
+
+        # Record BEFORE the token can reach anybody. Crashing here wastes a row.
+        # Crashing after responding leaves a live credential nobody can revoke,
+        # because phase 6 cannot revoke what it cannot find.
+        await self._credentials.record(
+            IssuanceRecord(
+                jti=minted.claims["jti"],
+                client_id=result.client_id,
+                subject=subject,
+                audience=str(claims["aud"]),
+                scope=scope,
+                issued_at=minted.claims["iat"],
+                expires_at=minted.claims["exp"],
+                # For client_credentials the client is its own root. From token
+                # exchange onward it is the innermost entry of the act chain.
+                root_subject=result.act_root or subject,
+                task_id=result.task_id,
+                delegation_depth=result.delegation_depth,
+            )
+        )
         return IssuedToken(
             access_token=minted.token,
             expires_in=minted.expires_in,
@@ -76,13 +105,15 @@ class IssuancePipeline:
         return result.subject
 
     @staticmethod
-    def _check_identity_is_usable(subject: str) -> None:
-        """Step 3. A deliberate no-op until clients carry lifecycle state.
+    def _check_identity_is_usable(result: GrantResult) -> None:
+        """Step 3. Authenticating is not the same question as being allowed to act.
 
-        This step exists as its own method so the suspended-client refusal
-        lands here rather than being folded into authentication. The 2 are
-        different questions and must fail independently.
+        A suspended client can still prove who it is. It is refused here, after
+        authentication succeeded, so the 2 failures stay independent and a
+        future grant cannot satisfy one by satisfying the other.
         """
+        if result.principal_status != ACTIVE:
+            raise OAuthError("invalid_client", "client authentication failed", 401)
 
     @staticmethod
     def _resolve_policy(result: GrantResult) -> tuple[frozenset[str], ...]:

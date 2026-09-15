@@ -1,0 +1,27 @@
+# Local development database. CI uses a GitHub Actions service container with
+# the same image and the same credentials, so the 2 environments match.
+#
+#   make db-up     start it
+#   make db-down   stop it and delete the data
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: agent-oauth-postgres
+    environment:
+      POSTGRES_USER: oauth
+      POSTGRES_PASSWORD: oauth
+      POSTGRES_DB: oauth
+    ports:
+      # 5433 on the host, so an existing local Postgres on 5432 is untouched.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oauth -d oauth"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      # The development database is disposable. Keeping it in memory makes a
+      # fresh start instant and removes any chance of stale state surviving.
+      - /var/lib/postgresql/data

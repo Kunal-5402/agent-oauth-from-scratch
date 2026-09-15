@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from src.api.forms import TokenForm
-from src.services.clients import RegisteredClient
+from src.models import RegisteredClient
 
 
 @dataclass(frozen=True)
@@ -25,11 +25,17 @@ class GrantResult:
     requested_scopes: tuple[str, ...]
     ceilings: tuple[frozenset[str], ...]
 
+    # Step 3 of the pipeline decides what an acceptable status is. The grant
+    # only reports what it resolved, so the decision stays in the shared path.
+    principal_status: str = "active"
+
     # Filled in by later phases. They are declared now because the pipeline has
     # to apply them uniformly, and a grant added later must not be able to
     # introduce a field the shared path does not already honour.
     max_expires_at: datetime | None = None
     act: dict[str, object] | None = None
+    # The innermost identity of the act chain. None means the subject is the root.
+    act_root: str | None = None
     task_id: str | None = None
     delegation_depth: int = 0
     extra_claims: dict[str, object] = field(default_factory=dict)
