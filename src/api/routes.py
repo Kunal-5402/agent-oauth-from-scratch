@@ -15,6 +15,7 @@ from src.errors import OAuthError
 from src.grants import GrantRegistry, default_grant_registry
 from src.services.clients import ClientRegistry
 from src.services.pipeline import IssuancePipeline
+from src.storage.repositories import IssuedCredentialRepository
 
 NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 
@@ -24,14 +25,20 @@ def create_app(
     settings: Settings,
     signing_key: SigningKey,
     clients: ClientRegistry,
+    credentials: IssuedCredentialRepository,
     grants: GrantRegistry | None = None,
     auth_methods: ClientAuthRegistry | None = None,
+    lifespan: object | None = None,
 ) -> FastAPI:
     """Create an isolated application instance with explicit dependencies."""
     grants = grants or default_grant_registry()
     auth_methods = auth_methods or default_client_auth_registry()
-    pipeline = IssuancePipeline(settings=settings, signing_key=signing_key)
-    app = FastAPI(title="Agent OAuth Authorization Server", version="0.1.0")
+    pipeline = IssuancePipeline(settings=settings, signing_key=signing_key, credentials=credentials)
+    app = FastAPI(
+        title="Agent OAuth Authorization Server",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
 
     @app.exception_handler(OAuthError)
     async def oauth_error_handler(_: Request, exc: OAuthError) -> JSONResponse:
@@ -57,7 +64,7 @@ def create_app(
 
     @app.get("/.well-known/oauth-authorization-server")
     async def get_oauth_authorization_server() -> dict[str, object]:
-        return authorization_server_metadata(
+        return await authorization_server_metadata(
             settings=settings,
             grants=grants,
             auth_methods=auth_methods,
@@ -75,10 +82,10 @@ def create_app(
 
         client = None
         if grant.requires_client_auth:
-            credentials = auth_methods.extract(request.headers, form)
-            client = clients.authenticate(credentials.client_id, credentials.client_secret)
+            presented = auth_methods.extract(request.headers, form)
+            client = await clients.authenticate(presented.client_id, presented.client_secret)
 
-        token = pipeline.issue(grant.resolve(form, client))
+        token = await pipeline.issue(grant.resolve(form, client))
         body = TokenResponse(
             access_token=token.access_token,
             expires_in=token.expires_in,

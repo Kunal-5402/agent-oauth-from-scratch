@@ -38,7 +38,7 @@ DERIVED_KEYS = frozenset(
 )
 
 
-def authorization_server_metadata(
+async def authorization_server_metadata(
     *,
     settings: Settings,
     grants: GrantRegistry,
@@ -56,7 +56,7 @@ def authorization_server_metadata(
         "response_types_supported": sorted(grants.response_types()),
         "token_endpoint_auth_methods_supported": sorted(auth_methods.names()),
         "scopes_supported": sorted(
-            {scope for client in clients.all() for scope in client.allowed_scopes}
+            {scope for client in await clients.all() for scope in client.allowed_scopes}
         ),
     }
 

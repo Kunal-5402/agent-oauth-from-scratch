@@ -3,9 +3,11 @@ name = "agent-oauth-from-scratch"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "argon2-cffi>=23.1",
     "cryptography>=50.0.1",
     "fastapi[standard]>=0.141.1",
     "httpx>=0.28.1",
+    "psycopg[binary,pool]>=3.2",
     "pydantic>=2.13.5",
     "pyjwt>=2.14.0",
 ]

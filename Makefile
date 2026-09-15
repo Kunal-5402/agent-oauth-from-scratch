@@ -14,7 +14,7 @@ PORT ?= 8000
 # make would keep them and hand the server a broken scope list.
 LOAD_ENV := set -a && source $(ENV_FILE) && set +a
 
-.PHONY: help setup install hooks env run test lint format check token clean
+.PHONY: help setup install hooks env db-up db-down db-shell run test lint format check token clean
 
 help: ## Show this list
 	@echo "Agent OAuth authorization server"
@@ -24,7 +24,7 @@ help: ## Show this list
 	@echo
 	@echo "Start here:  make setup && make run"
 
-setup: install hooks env ## Install dependencies, hooks, and a local .env
+setup: install hooks env db-up ## Install dependencies, hooks, a local .env, and the database
 	@echo
 	@echo "Ready. Start the server with: make run"
 
@@ -43,11 +43,23 @@ env: ## Create .env from .env.example, with a fresh random client secret
 		echo "Wrote $(ENV_FILE) with a freshly generated OAUTH_CLIENT_SECRET."; \
 	fi
 
+db-up: ## Start Postgres and wait until it is accepting connections
+	docker compose up -d
+	@until [ "$$(docker inspect -f '{{.State.Health.Status}}' agent-oauth-postgres 2>/dev/null)" = "healthy" ]; do sleep 1; done
+	@echo "Postgres is ready on 127.0.0.1:5433 (databases: oauth, oauth_test)."
+
+db-down: ## Stop Postgres and delete its data
+	docker compose down -v
+
+db-shell: ## Open psql against the development database
+	docker compose exec postgres psql -U oauth -d oauth
+
 run: ## Start the authorization server with reload (PORT=8000)
 	@test -f $(ENV_FILE) || { echo "No $(ENV_FILE). Run: make env"; exit 1; }
+	@docker compose ps --status running --quiet postgres >/dev/null 2>&1 || { echo "Postgres is not running. Run: make db-up"; exit 1; }
 	$(LOAD_ENV) && uv run uvicorn src.main:app --reload --port $(PORT)
 
-test: ## Run the test suite
+test: db-up ## Run the test suite (starts the database if it is down)
 	uv run pytest -q
 
 lint: ## Report lint problems and fix what can be fixed
@@ -56,7 +68,7 @@ lint: ## Report lint problems and fix what can be fixed
 format: ## Format the code
 	uv run ruff format .
 
-check: ## Everything CI runs: lint, format check, tests
+check: db-up ## Everything CI runs: lint, format check, tests
 	uv run ruff check .
 	uv run ruff format --check .
 	uv run pytest -q

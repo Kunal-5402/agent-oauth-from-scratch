@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from src.api.forms import TokenForm
 from src.grants.base import GrantResult
-from src.services.clients import RegisteredClient
+from src.models import RegisteredClient
 from src.services.scopes import parse_scope
 
 
@@ -19,6 +19,7 @@ class ClientCredentialsGrant:
             subject=client.subject,
             client_id=client.client_id,
             requested_scopes=parse_scope(form.get("scope")),
+            principal_status=client.status,
             # The client registration is the ONLY ceiling here. There is no
             # human and no delegation chain underneath it, which is why an
             # empty allow-list has to mean zero rather than "unrestricted".
