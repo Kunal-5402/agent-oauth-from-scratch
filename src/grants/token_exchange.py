@@ -28,6 +28,7 @@ from src.services.delegation import (
     may_act_permits,
     nest,
     task_of,
+    tenant_of,
 )
 from src.services.scopes import parse_scope
 from src.storage.repositories import ClientRepository
@@ -71,6 +72,7 @@ class TokenExchangeGrant:
 
         actor_client = await self._actor_client(actor_claims)
         self._check_may_act(subject_claims, actor_claims)
+        tenant = self._agreed_tenant(subject_claims, actor_client)
 
         # Rule 2, checked BEFORE anything is signed. An issue-then-validate
         # shape leaves a signed over-depth token in existence for the moment it
@@ -96,6 +98,7 @@ class TokenExchangeGrant:
             # branch from the tree it belongs to, and phase 6 revokes by tree.
             task_id=task_of(subject_claims),
             delegation_depth=new_depth,
+            tenant=tenant,
             audience=audience,
             # A derived token must never outlive the token it came from.
             max_expires_at=datetime.fromtimestamp(subject_claims["exp"], tz=UTC),
@@ -150,6 +153,19 @@ class TokenExchangeGrant:
         if actor_client is None:
             raise OAuthError("invalid_grant", "token exchange was refused", 400)
         return actor_client
+
+    @staticmethod
+    def _agreed_tenant(subject_claims: dict, actor_client: RegisteredClient) -> str | None:
+        """Authority never crosses a tenant boundary.
+
+        The subject token's tenant comes from its own signature; the actor's
+        comes from its registration. Neither can be supplied by the caller, so a
+        compromised client cannot claim somebody else's account by asking.
+        """
+        tenant = tenant_of(subject_claims)
+        if tenant is not None and tenant != actor_client.tenant:
+            raise OAuthError("invalid_grant", "token exchange was refused", 400)
+        return tenant if tenant is not None else actor_client.tenant
 
     @staticmethod
     def _check_may_act(subject_claims: dict, actor_claims: dict) -> None:

@@ -42,6 +42,10 @@ MAY_ACT_CLAIM = "may_act"
 # How many hops from the root this token is. A root grant issues 0.
 DEPTH_CLAIM = "delegation_depth"
 
+# Which account this authority belongs to. Read from a verified token or from a
+# client registration, never from a request.
+TENANT_CLAIM = "tenant"
+
 
 class MalformedChainError(OAuthError):
     """An ``act`` structure that cannot be read."""
@@ -166,3 +170,13 @@ def declared_depth(claims: dict[str, Any]) -> int:
     if declared != depth(claims):
         raise MalformedChainError("delegation depth disagrees with the act chain")
     return declared
+
+
+def tenant_of(claims: dict[str, Any]) -> str | None:
+    """The tenant a verified token belongs to."""
+    tenant = claims.get(TENANT_CLAIM)
+    if tenant is None:
+        return None
+    if not isinstance(tenant, str) or not tenant:
+        raise MalformedChainError("tenant must be a non-empty string")
+    return tenant
