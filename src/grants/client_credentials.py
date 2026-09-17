@@ -13,7 +13,7 @@ class ClientCredentialsGrant:
     requires_client_auth = True
     response_types = frozenset()
 
-    def resolve(self, form: TokenForm, client: RegisteredClient | None) -> GrantResult:
+    async def resolve(self, form: TokenForm, client: RegisteredClient | None) -> GrantResult:
         assert client is not None  # noqa: S101 - requires_client_auth guarantees it
         return GrantResult(
             subject=client.subject,

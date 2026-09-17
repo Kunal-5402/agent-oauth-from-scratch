@@ -9,15 +9,19 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from src.crypto.tokens import TokenVerifier
 from src.errors import OAuthError
 from src.grants.base import Grant, GrantResult
 from src.grants.client_credentials import ClientCredentialsGrant
+from src.grants.token_exchange import TokenExchangeGrant
+from src.storage.repositories import ClientRepository
 
 __all__ = [
     "ClientCredentialsGrant",
     "Grant",
     "GrantRegistry",
     "GrantResult",
+    "TokenExchangeGrant",
     "default_grant_registry",
 ]
 
@@ -47,5 +51,15 @@ class GrantRegistry:
         return tuple(self._grants.values())
 
 
-def default_grant_registry() -> GrantRegistry:
-    return GrantRegistry([ClientCredentialsGrant()])
+def default_grant_registry(*, verifier: TokenVerifier, clients: ClientRepository) -> GrantRegistry:
+    """Every grant this server supports today.
+
+    Adding a grant is adding one module and one entry here. It cannot reach the
+    signer except through the shared pipeline, so it cannot skip a check.
+    """
+    return GrantRegistry(
+        [
+            ClientCredentialsGrant(),
+            TokenExchangeGrant(verifier=verifier, clients=clients),
+        ]
+    )

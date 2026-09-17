@@ -59,7 +59,7 @@ class IssuancePipeline:
 
         claims: dict[str, object] = {
             "sub": subject,
-            "aud": self._settings.resource_audience,
+            "aud": result.audience or self._settings.resource_audience,
             "client_id": result.client_id,
         }
         if scope:
