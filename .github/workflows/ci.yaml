@@ -3,8 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every pull request, not only those targeting main. Stacked branches are
+  # reviewed and merged like any other, so they need the same gate.
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
