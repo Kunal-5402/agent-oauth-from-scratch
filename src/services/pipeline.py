@@ -21,6 +21,7 @@ from src.crypto.tokens import TokenMinter
 from src.errors import OAuthError
 from src.grants.base import GrantResult
 from src.models import ACTIVE
+from src.services.delegation import ACT_CLAIM
 from src.services.scopes import attenuate
 from src.storage.repositories import IssuanceRecord, IssuedCredentialRepository
 
@@ -64,7 +65,7 @@ class IssuancePipeline:
         if scope:
             claims["scope"] = scope
         if result.act is not None:
-            claims["act"] = result.act
+            claims[ACT_CLAIM] = result.act
         if result.task_id is not None:
             claims["task_id"] = result.task_id
         claims.update(result.extra_claims)
