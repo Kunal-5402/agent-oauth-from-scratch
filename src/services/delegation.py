@@ -31,6 +31,14 @@ MAXIMUM_CHAIN_DEPTH = 32
 # grep for the literal finds nothing outside this module.
 ACT_CLAIM = "act"
 
+# Set once at the root of a tree of work and copied unchanged into every token
+# derived from it. It is what lets phase 6 stop one task and nothing else.
+TASK_CLAIM = "task_id"
+
+# A statement made in advance, inside a signed token, about who may act for
+# this subject. Read from a verified token only, never from a parameter.
+MAY_ACT_CLAIM = "may_act"
+
 
 class MalformedChainError(OAuthError):
     """An ``act`` structure that cannot be read."""
@@ -108,3 +116,33 @@ def nest(subject_claims: dict[str, Any]) -> dict[str, Any]:
             raise MalformedChainError("act must be an object")
         new_act[ACT_CLAIM] = existing
     return new_act
+
+
+def may_act_permits(subject_claims: dict[str, Any], actor_subject: str) -> bool:
+    """Does the subject token permit this actor to act for it?
+
+    ``may_act`` moves the decision to issuance time, where a human was present,
+    instead of exchange time, where nobody is. Absent means the actor's own
+    registration is the only ceiling.
+    """
+    may_act = subject_claims.get(MAY_ACT_CLAIM)
+    if may_act is None:
+        return True
+
+    if isinstance(may_act, dict):
+        return may_act.get("sub") == actor_subject
+    if isinstance(may_act, list):
+        return any(
+            isinstance(entry, dict) and entry.get("sub") == actor_subject for entry in may_act
+        )
+    raise MalformedChainError("may_act must be an object or a list of objects")
+
+
+def task_of(subject_claims: dict[str, Any]) -> str | None:
+    """The task this work belongs to, read from a verified token only."""
+    task = subject_claims.get(TASK_CLAIM)
+    if task is None:
+        return None
+    if not isinstance(task, str) or not task:
+        raise MalformedChainError("task_id must be a non-empty string")
+    return task
