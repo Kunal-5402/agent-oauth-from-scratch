@@ -13,6 +13,7 @@ import pytest
 
 from src.crypto.tokens import TokenMinter
 from src.services.delegation import (
+    DEPTH_CLAIM,
     MAY_ACT_CLAIM,
     TASK_CLAIM,
     MalformedChainError,
@@ -76,6 +77,9 @@ def _subject_with(minter, **extra):
             "aud": "test-resource",
             "client_id": "reporting-agent",
             "scope": "reports:read",
+            # A hand-minted token must look like a real one. A missing depth
+            # counter is refused, never defaulted to 0.
+            DEPTH_CLAIM: 0,
             **extra,
         }
     ).token

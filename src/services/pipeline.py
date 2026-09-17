@@ -21,7 +21,7 @@ from src.crypto.tokens import TokenMinter
 from src.errors import OAuthError
 from src.grants.base import GrantResult
 from src.models import ACTIVE
-from src.services.delegation import ACT_CLAIM, TASK_CLAIM
+from src.services.delegation import ACT_CLAIM, DEPTH_CLAIM, TASK_CLAIM
 from src.services.scopes import attenuate
 from src.storage.repositories import IssuanceRecord, IssuedCredentialRepository
 
@@ -61,6 +61,9 @@ class IssuancePipeline:
             "sub": subject,
             "aud": result.audience or self._settings.resource_audience,
             "client_id": result.client_id,
+            # Written on every token, including roots, because a missing
+            # counter has to be refusable rather than defaulted to 0.
+            DEPTH_CLAIM: result.delegation_depth,
         }
         if scope:
             claims["scope"] = scope

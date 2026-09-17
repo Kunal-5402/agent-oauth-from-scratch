@@ -39,6 +39,9 @@ TASK_CLAIM = "task_id"
 # this subject. Read from a verified token only, never from a parameter.
 MAY_ACT_CLAIM = "may_act"
 
+# How many hops from the root this token is. A root grant issues 0.
+DEPTH_CLAIM = "delegation_depth"
+
 
 class MalformedChainError(OAuthError):
     """An ``act`` structure that cannot be read."""
@@ -146,3 +149,20 @@ def task_of(subject_claims: dict[str, Any]) -> str | None:
     if not isinstance(task, str) or not task:
         raise MalformedChainError("task_id must be a non-empty string")
     return task
+
+
+def declared_depth(claims: dict[str, Any]) -> int:
+    """The depth a token declares, cross-checked against its own chain.
+
+    2 counters measure the same thing by different means. If they can disagree,
+    one of them is being written somewhere it should not be, and a cap that
+    reads only one of them can be walked past.
+    """
+    declared = claims.get(DEPTH_CLAIM)
+    if not isinstance(declared, int) or isinstance(declared, bool) or declared < 0:
+        # A missing counter is the same as a reset counter. Refuse, never default.
+        raise MalformedChainError("token does not declare a delegation depth")
+
+    if declared != depth(claims):
+        raise MalformedChainError("delegation depth disagrees with the act chain")
+    return declared

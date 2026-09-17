@@ -41,7 +41,11 @@ def create_app(
 ) -> FastAPI:
     """Create an isolated application instance with explicit dependencies."""
     verifier = TokenVerifier(issuer=settings.issuer, signing_key=signing_key)
-    grants = grants or default_grant_registry(verifier=verifier, clients=client_records)
+    grants = grants or default_grant_registry(
+        verifier=verifier,
+        clients=client_records,
+        maximum_depth=settings.max_delegation_depth,
+    )
     auth_methods = auth_methods or default_client_auth_registry(
         issuer=settings.issuer,
         token_endpoint=settings.url_for("/oauth/token"),
