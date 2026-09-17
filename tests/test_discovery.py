@@ -34,4 +34,7 @@ def test_metadata_describes_the_running_authorization_server(integration_environ
     )
     assert metadata["grant_types_supported"] == ["client_credentials"]
     assert metadata["response_types_supported"] == []
-    assert metadata["token_endpoint_auth_methods_supported"] == ["client_secret_post"]
+    assert metadata["token_endpoint_auth_methods_supported"] == [
+        "client_secret_post",
+        "private_key_jwt",
+    ]

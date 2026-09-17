@@ -30,3 +30,12 @@ class RegisteredClient:
             raise ValueError("client_id and subject must not be empty")
         if self.status not in (ACTIVE, SUSPENDED):
             raise ValueError(f"unknown client status: {self.status}")
+
+
+@dataclass(frozen=True)
+class ClientKey:
+    """One public key a client may sign a client assertion with."""
+
+    client_id: str
+    kid: str
+    public_jwk: dict[str, object]

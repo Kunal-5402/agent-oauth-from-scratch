@@ -10,7 +10,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from src.auth import ClientAuthRegistry, ClientSecretPost, default_client_auth_registry
+from src.auth import ClientAuthRegistry, ClientSecretPost, PrivateKeyJwt
 from src.config import Settings
 from src.grants import ClientCredentialsGrant, GrantRegistry, default_grant_registry
 
@@ -30,7 +30,10 @@ def test_every_advertised_auth_method_has_a_registered_handler(integration_envir
     )
 
     advertised = set(response.json()["token_endpoint_auth_methods_supported"])
-    assert advertised == set(default_client_auth_registry().names())
+
+    # Every method the code implements, and nothing else. Adding a class without
+    # registering it, or registering one that is not implemented, fails here.
+    assert advertised == {ClientSecretPost.name, PrivateKeyJwt.name}
 
 
 def test_response_types_come_from_the_installed_grants(integration_environment):

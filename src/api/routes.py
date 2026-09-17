@@ -15,7 +15,11 @@ from src.errors import OAuthError
 from src.grants import GrantRegistry, default_grant_registry
 from src.services.clients import ClientRegistry
 from src.services.pipeline import IssuancePipeline
-from src.storage.repositories import IssuedCredentialRepository
+from src.storage.repositories import (
+    AssertionReplayRepository,
+    ClientKeyRepository,
+    IssuedCredentialRepository,
+)
 
 NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 
@@ -26,13 +30,21 @@ def create_app(
     signing_key: SigningKey,
     clients: ClientRegistry,
     credentials: IssuedCredentialRepository,
+    client_keys: ClientKeyRepository,
+    replays: AssertionReplayRepository,
     grants: GrantRegistry | None = None,
     auth_methods: ClientAuthRegistry | None = None,
     lifespan: object | None = None,
 ) -> FastAPI:
     """Create an isolated application instance with explicit dependencies."""
     grants = grants or default_grant_registry()
-    auth_methods = auth_methods or default_client_auth_registry()
+    auth_methods = auth_methods or default_client_auth_registry(
+        issuer=settings.issuer,
+        token_endpoint=settings.url_for("/oauth/token"),
+        keys=client_keys,
+        replays=replays,
+        server_key=signing_key,
+    )
     pipeline = IssuancePipeline(settings=settings, signing_key=signing_key, credentials=credentials)
     app = FastAPI(
         title="Agent OAuth Authorization Server",
@@ -82,8 +94,8 @@ def create_app(
 
         client = None
         if grant.requires_client_auth:
-            presented = auth_methods.extract(request.headers, form)
-            client = await clients.authenticate(presented.client_id, presented.client_secret)
+            presented, method = auth_methods.extract(request.headers, form)
+            client = await clients.authenticate(presented, method)
 
         token = await pipeline.issue(grant.resolve(form, client))
         body = TokenResponse(

@@ -10,18 +10,26 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 import httpx
+import psycopg
 import pytest
 import uvicorn
 from fastapi import FastAPI
-from psycopg_pool import AsyncConnectionPool
+from psycopg_pool import AsyncConnectionPool, PoolTimeout
 
 from src.api.routes import create_app
 from src.config import Settings
 from src.crypto.keys import KeyStore, SigningKey
+from src.models import ClientKey
 from src.services.clients import ClientRegistry, RegisteredClient
 from src.storage.database import create_pool, migrate, reset
-from src.storage.repositories import ClientRepository, IssuedCredentialRepository
+from src.storage.repositories import (
+    AssertionReplayRepository,
+    ClientKeyRepository,
+    ClientRepository,
+    IssuedCredentialRepository,
+)
 from src.storage.secrets import hash_secret
+from tests.oauth_client.assertions import ClientKeyPair, generate_client_key
 from tests.oauth_client.client import OAuthClient
 from tests.resource_server.app import create_resource_server
 
@@ -34,6 +42,9 @@ TEST_DATABASE_URL = os.environ.get(
 REPORTING_SECRET = "test-only-secret"
 NO_AUTHORITY_SECRET = "test-only-empty-scope-secret"
 SUSPENDED_SECRET = "test-only-suspended-secret"
+
+# A client that holds no secret at all and can only authenticate by signing.
+ASSERTION_CLIENT_ID = "assertion-agent"
 
 T = TypeVar("T")
 
@@ -64,6 +75,7 @@ class IntegrationEnvironment:
     settings: Settings
     signing_key: SigningKey
     oauth_client: OAuthClient
+    client_key: ClientKeyPair
 
     def issued_credentials(self) -> list[dict[str, Any]]:
         """Every row the server has recorded, newest last."""
@@ -145,6 +157,16 @@ def _seed_clients() -> tuple[RegisteredClient, ...]:
             allowed_scopes=frozenset(),
         ),
         RegisteredClient(
+            client_id=ASSERTION_CLIENT_ID,
+            subject="agent:assertion",
+            # No secret at all. This client cannot authenticate any other way,
+            # which is the property private_key_jwt exists to give it.
+            secret_hash=None,
+            auth_method="private_key_jwt",
+            allowed_scopes=frozenset({"reports:read"}),
+            allowed_audiences=frozenset({"test-resource"}),
+        ),
+        RegisteredClient(
             client_id="suspended-agent",
             subject="agent:suspended",
             secret_hash=hash_secret(SUSPENDED_SECRET),
@@ -154,8 +176,14 @@ def _seed_clients() -> tuple[RegisteredClient, ...]:
     )
 
 
+@pytest.fixture(scope="session")
+def client_key() -> ClientKeyPair:
+    """One key pair for the whole run. Generating P-256 keys is not free."""
+    return generate_client_key()
+
+
 @pytest.fixture
-def clean_database() -> str:
+def clean_database(client_key) -> str:
     """A freshly migrated, freshly seeded database for one test."""
 
     async def _prepare(pool: AsyncConnectionPool) -> None:
@@ -165,10 +193,20 @@ def clean_database() -> str:
         repository = ClientRepository(pool)
         for client in _seed_clients():
             await repository.upsert(client)
+        await ClientKeyRepository(pool).add(
+            ClientKey(
+                client_id=ASSERTION_CLIENT_ID,
+                kid=client_key.kid,
+                public_jwk=client_key.public_jwk,
+            )
+        )
 
     try:
         run_with_pool(_prepare)
-    except Exception as exc:  # the message matters more than the traceback here
+    except (psycopg.OperationalError, PoolTimeout) as exc:
+        # Only a connection failure gets the friendly message. Catching every
+        # exception here would turn a bug in the seeding code into a misleading
+        # "database unreachable", which is exactly what it did once.
         raise RuntimeError(
             f"cannot reach the test database at {TEST_DATABASE_URL}.\n"
             "Start it with `make db-up`, or set TEST_DATABASE_URL."
@@ -178,7 +216,7 @@ def clean_database() -> str:
 
 @pytest.fixture
 def integration_environment(
-    tmp_path, clean_database
+    tmp_path, clean_database, client_key
 ) -> Generator[IntegrationEnvironment, None, None]:
     authorization_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     authorization_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -212,6 +250,8 @@ def integration_environment(
         signing_key=signing_key,
         clients=ClientRegistry(ClientRepository(pool)),
         credentials=IssuedCredentialRepository(pool),
+        client_keys=ClientKeyRepository(pool),
+        replays=AssertionReplayRepository(pool),
         lifespan=lifespan,
     )
     authorization_server = LiveServer(
@@ -237,6 +277,7 @@ def integration_environment(
             settings=settings,
             signing_key=signing_key,
             oauth_client=oauth_client,
+            client_key=client_key,
         )
     finally:
         oauth_client.close()
