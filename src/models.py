@@ -24,9 +24,19 @@ class RegisteredClient:
     status: str = ACTIVE
     secret_hash: str | None = None
     auth_method: str = "client_secret_post"
+    tenant: str = "default"
 
     def __post_init__(self) -> None:
         if not self.client_id or not self.subject:
             raise ValueError("client_id and subject must not be empty")
         if self.status not in (ACTIVE, SUSPENDED):
             raise ValueError(f"unknown client status: {self.status}")
+
+
+@dataclass(frozen=True)
+class ClientKey:
+    """One public key a client may sign a client assertion with."""
+
+    client_id: str
+    kid: str
+    public_jwk: dict[str, object]

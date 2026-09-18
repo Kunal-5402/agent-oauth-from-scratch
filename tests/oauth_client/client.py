@@ -45,3 +45,18 @@ class OAuthClient:
                 "scope": scope,
             },
         )
+
+    def with_assertion(
+        self, *, assertion: str, grant_type: str = "client_credentials", **extra: str
+    ) -> httpx.Response:
+        """Request a token authenticating with a signed client assertion."""
+        metadata = self.discover()
+        return self._http.post(
+            metadata["token_endpoint"],
+            data={
+                "grant_type": grant_type,
+                "client_assertion_type": ("urn:ietf:params:oauth:client-assertion-type:jwt-bearer"),
+                "client_assertion": assertion,
+                **extra,
+            },
+        )

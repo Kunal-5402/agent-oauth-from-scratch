@@ -11,6 +11,8 @@ import httpx
 import jwt
 import pytest
 
+from src.auth import ClientSecretPost
+from src.auth.base import PresentedCredential
 from src.models import RegisteredClient
 from src.services.clients import ClientRegistry
 from src.storage.repositories import ClientRepository, IssuedCredentialRepository
@@ -100,7 +102,11 @@ def test_a_suspended_client_authenticates_and_is_then_refused(integration_enviro
 
     async def _authenticate(pool):
         registry = ClientRegistry(ClientRepository(pool))
-        return await registry.authenticate("suspended-agent", SUSPENDED_SECRET)
+        method = ClientSecretPost()
+        presented = PresentedCredential(
+            client_id="suspended-agent", secret=SUSPENDED_SECRET, method=method.name
+        )
+        return await registry.authenticate(presented, method)
 
     authenticated = run_with_pool(_authenticate)
     assert authenticated.client_id == "suspended-agent"
@@ -131,9 +137,17 @@ def test_no_client_secret_is_stored_in_plain_text(integration_environment):
 
     assert rows
     for client_id, secret_hash in rows:
+        if secret_hash is None:
+            # A private_key_jwt client holds no secret at all, which is the
+            # strongest version of this property: nothing to leak.
+            continue
         assert secret_hash.startswith("$argon2"), client_id
         assert REPORTING_SECRET not in secret_hash
         assert SUSPENDED_SECRET not in secret_hash
+
+    assert any(secret_hash is None for _, secret_hash in rows), (
+        "expected at least one secretless client, or this test proves less than it looks"
+    )
 
 
 def test_a_suspended_client_is_refused_before_anything_is_signed(

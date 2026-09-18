@@ -12,7 +12,12 @@ from src.config import Settings, settings_from_environment
 from src.crypto.keys import KeyStore
 from src.services.clients import ClientRegistry, RegisteredClient
 from src.storage.database import create_pool, migrate
-from src.storage.repositories import ClientRepository, IssuedCredentialRepository
+from src.storage.repositories import (
+    AssertionReplayRepository,
+    ClientKeyRepository,
+    ClientRepository,
+    IssuedCredentialRepository,
+)
 from src.storage.secrets import hash_secret
 
 
@@ -55,7 +60,10 @@ def build_application(settings: Settings) -> FastAPI:
         settings=settings,
         signing_key=KeyStore(settings.key_directory).load_or_create(),
         clients=ClientRegistry(clients),
+        client_records=ClientRepository(pool),
         credentials=IssuedCredentialRepository(pool),
+        client_keys=ClientKeyRepository(pool),
+        replays=AssertionReplayRepository(pool),
         lifespan=lifespan,
     )
     return application

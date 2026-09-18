@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from src.auth.base import ClientAuthMethod, PresentedCredential
 from src.errors import OAuthError
 from src.models import ACTIVE, SUSPENDED, RegisteredClient
 from src.storage.repositories import ClientRepository
-from src.storage.secrets import verify_secret
 
 __all__ = ["ACTIVE", "SUSPENDED", "ClientRegistry", "RegisteredClient"]
 
@@ -16,17 +16,23 @@ class ClientRegistry:
     def __init__(self, repository: ClientRepository) -> None:
         self._repository = repository
 
-    async def authenticate(self, client_id: str, client_secret: str) -> RegisteredClient:
-        client = await self._repository.get(client_id)
+    async def authenticate(
+        self, presented: PresentedCredential, method: ClientAuthMethod
+    ) -> RegisteredClient:
+        """Look the client up, let the method judge the proof, refuse uniformly.
 
-        # verify_secret runs a full argon2 verification even when the client is
-        # unknown, so an unknown ID and a wrong secret cost the same. An early
-        # return here would let the response time enumerate valid client IDs.
-        if not verify_secret(client_secret, client.secret_hash if client else None):
-            # Never distinguish an unknown ID from an incorrect secret.
+        Only the method knows what a valid proof looks like. Only this function
+        decides what to say when it is not, and it says the same thing whether
+        the client was unknown, the secret wrong, or the assertion replayed.
+        """
+        client = await self._repository.get(presented.client_id)
+
+        # Every method does comparable work for a missing client, so an unknown
+        # client ID costs what a wrong proof costs and cannot be found by timing.
+        if not await method.verify(presented, client):
             raise OAuthError("invalid_client", "client authentication failed", 401)
 
-        assert client is not None  # noqa: S101 - verify_secret returns False when absent
+        assert client is not None  # noqa: S101 - verify returns False when absent
         return client
 
     async def all(self) -> tuple[RegisteredClient, ...]:
