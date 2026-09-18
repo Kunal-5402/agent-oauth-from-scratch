@@ -33,6 +33,7 @@ class GrantResult:
     # which only the root grants use. Every derived token names one explicitly.
     audience: str | None = None
     issued_token_type: str | None = None
+    tenant: str | None = None
 
     # Filled in by later phases. They are declared now because the pipeline has
     # to apply them uniformly, and a grant added later must not be able to
