@@ -21,7 +21,7 @@ from src.crypto.tokens import TokenMinter
 from src.errors import OAuthError
 from src.grants.base import GrantResult
 from src.models import ACTIVE
-from src.services.delegation import ACT_CLAIM
+from src.services.delegation import ACT_CLAIM, DEPTH_CLAIM, TASK_CLAIM, TENANT_CLAIM
 from src.services.scopes import attenuate
 from src.storage.repositories import IssuanceRecord, IssuedCredentialRepository
 
@@ -31,6 +31,8 @@ class IssuedToken:
     access_token: str
     expires_in: int
     scope: str
+    # Set only by a grant that must declare what it produced, such as exchange.
+    issued_token_type: str | None = None
 
 
 class IssuancePipeline:
@@ -61,13 +63,18 @@ class IssuancePipeline:
             "sub": subject,
             "aud": result.audience or self._settings.resource_audience,
             "client_id": result.client_id,
+            # Written on every token, including roots, because a missing
+            # counter has to be refusable rather than defaulted to 0.
+            DEPTH_CLAIM: result.delegation_depth,
         }
         if scope:
             claims["scope"] = scope
         if result.act is not None:
             claims[ACT_CLAIM] = result.act
         if result.task_id is not None:
-            claims["task_id"] = result.task_id
+            claims[TASK_CLAIM] = result.task_id
+        if result.tenant is not None:
+            claims[TENANT_CLAIM] = result.tenant
         claims.update(result.extra_claims)
 
         # The minter owns iss, iat, exp and jti, and applies the not_after
@@ -98,6 +105,7 @@ class IssuancePipeline:
             access_token=minted.token,
             expires_in=minted.expires_in,
             scope=scope,
+            issued_token_type=result.issued_token_type,
         )
 
     @staticmethod

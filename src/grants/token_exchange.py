@@ -22,7 +22,14 @@ from src.crypto.tokens import TokenError, TokenVerifier
 from src.errors import OAuthError
 from src.grants.base import GrantResult
 from src.models import RegisteredClient
-from src.services.delegation import chain, nest
+from src.services.delegation import (
+    chain,
+    declared_depth,
+    may_act_permits,
+    nest,
+    task_of,
+    tenant_of,
+)
 from src.services.scopes import parse_scope
 from src.storage.repositories import ClientRepository
 
@@ -37,9 +44,16 @@ class TokenExchangeGrant:
     requires_client_auth = True
     response_types = frozenset()
 
-    def __init__(self, *, verifier: TokenVerifier, clients: ClientRepository) -> None:
+    def __init__(
+        self,
+        *,
+        verifier: TokenVerifier,
+        clients: ClientRepository,
+        maximum_depth: int,
+    ) -> None:
         self._verifier = verifier
         self._clients = clients
+        self._maximum_depth = maximum_depth
 
     async def resolve(self, form: TokenForm, client: RegisteredClient | None) -> GrantResult:
         assert client is not None  # noqa: S101 - requires_client_auth guarantees it
@@ -58,6 +72,14 @@ class TokenExchangeGrant:
 
         actor_client = await self._actor_client(actor_claims)
         self._check_may_act(subject_claims, actor_claims)
+        tenant = self._agreed_tenant(subject_claims, actor_client)
+
+        # Rule 2, checked BEFORE anything is signed. An issue-then-validate
+        # shape leaves a signed over-depth token in existence for the moment it
+        # takes to notice.
+        new_depth = declared_depth(subject_claims) + 1
+        if new_depth > self._maximum_depth:
+            raise OAuthError("invalid_grant", "delegation is too deep", 400)
 
         subject_scopes = frozenset(parse_scope(subject_claims.get("scope")))
         requested = parse_scope(form.get("scope")) or tuple(sorted(subject_scopes))
@@ -72,6 +94,11 @@ class TokenExchangeGrant:
             ceilings=(subject_scopes, actor_client.allowed_scopes),
             act=nest(subject_claims),
             act_root=chain(subject_claims)[-1],
+            # Copied, never generated. A new task_id here would detach this
+            # branch from the tree it belongs to, and phase 6 revokes by tree.
+            task_id=task_of(subject_claims),
+            delegation_depth=new_depth,
+            tenant=tenant,
             audience=audience,
             # A derived token must never outlive the token it came from.
             max_expires_at=datetime.fromtimestamp(subject_claims["exp"], tz=UTC),
@@ -128,17 +155,28 @@ class TokenExchangeGrant:
         return actor_client
 
     @staticmethod
+    def _agreed_tenant(subject_claims: dict, actor_client: RegisteredClient) -> str | None:
+        """Authority never crosses a tenant boundary.
+
+        The subject token's tenant comes from its own signature; the actor's
+        comes from its registration. Neither can be supplied by the caller, so a
+        compromised client cannot claim somebody else's account by asking.
+        """
+        tenant = tenant_of(subject_claims)
+        if tenant is not None and tenant != actor_client.tenant:
+            raise OAuthError("invalid_grant", "token exchange was refused", 400)
+        return tenant if tenant is not None else actor_client.tenant
+
+    @staticmethod
     def _check_may_act(subject_claims: dict, actor_claims: dict) -> None:
-        """``may_act`` is a statement made in advance about who may act.
+        """``may_act`` names, in advance, who is permitted to act for a subject.
 
         It is read from the VERIFIED subject token only. A request parameter
-        saying the same thing would let any holder name itself.
+        saying the same thing would let any holder name itself, which is bearer
+        semantics wearing a delegation costume.
         """
-        may_act = subject_claims.get("may_act")
-        if may_act is None:
-            return
-        if not isinstance(may_act, dict) or may_act.get("sub") != actor_claims["sub"]:
-            # Do not name who was expected. That would leak the delegation
+        if not may_act_permits(subject_claims, actor_claims["sub"]):
+            # Do not name who WAS expected. That would leak the delegation
             # topology to a caller who merely guessed a subject token.
             raise OAuthError("invalid_grant", "token exchange was refused", 400)
 

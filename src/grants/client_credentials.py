@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import secrets
+
 from src.api.forms import TokenForm
 from src.grants.base import GrantResult
 from src.models import RegisteredClient
@@ -20,6 +22,13 @@ class ClientCredentialsGrant:
             client_id=client.client_id,
             requested_scopes=parse_scope(form.get("scope")),
             principal_status=client.status,
+            # A root grant starts a tree of work. Every token derived from
+            # this one copies the task unchanged, so phase 6 can stop the
+            # whole task or one branch of it.
+            task_id=secrets.token_urlsafe(12),
+            # From the registration, never from the request. A caller that
+            # could name its own tenant could name somebody else's.
+            tenant=client.tenant,
             # The client registration is the ONLY ceiling here. There is no
             # human and no delegation chain underneath it, which is why an
             # empty allow-list has to mean zero rather than "unrestricted".
