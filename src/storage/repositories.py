@@ -39,7 +39,7 @@ class ClientRepository:
             result = await connection.execute(
                 """
                 SELECT client_id, subject, status, secret_hash, auth_method,
-                       allowed_scopes, allowed_audiences
+                       allowed_scopes, allowed_audiences, tenant
                   FROM clients
                  WHERE client_id = %s
                 """,
@@ -54,7 +54,7 @@ class ClientRepository:
             result = await connection.execute(
                 """
                 SELECT client_id, subject, status, secret_hash, auth_method,
-                       allowed_scopes, allowed_audiences
+                       allowed_scopes, allowed_audiences, tenant
                   FROM clients
                  ORDER BY client_id
                 """
@@ -67,15 +67,17 @@ class ClientRepository:
             await connection.execute(
                 """
                 INSERT INTO clients (client_id, subject, status, secret_hash,
-                                     auth_method, allowed_scopes, allowed_audiences)
-                     VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                     auth_method, allowed_scopes, allowed_audiences,
+                                     tenant)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (client_id) DO UPDATE
                         SET subject = EXCLUDED.subject,
                             status = EXCLUDED.status,
                             secret_hash = EXCLUDED.secret_hash,
                             auth_method = EXCLUDED.auth_method,
                             allowed_scopes = EXCLUDED.allowed_scopes,
-                            allowed_audiences = EXCLUDED.allowed_audiences
+                            allowed_audiences = EXCLUDED.allowed_audiences,
+                            tenant = EXCLUDED.tenant
                 """,
                 (
                     client.client_id,
@@ -85,6 +87,7 @@ class ClientRepository:
                     client.auth_method,
                     sorted(client.allowed_scopes),
                     sorted(client.allowed_audiences),
+                    client.tenant,
                 ),
             )
             await connection.commit()
@@ -143,6 +146,7 @@ def _to_client(row: dict[str, Any]) -> RegisteredClient:
         auth_method=row["auth_method"],
         allowed_scopes=frozenset(row["allowed_scopes"]),
         allowed_audiences=frozenset(row["allowed_audiences"]),
+        tenant=row["tenant"],
     )
 
 

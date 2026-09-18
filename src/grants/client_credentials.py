@@ -26,6 +26,9 @@ class ClientCredentialsGrant:
             # this one copies the task unchanged, so phase 6 can stop the
             # whole task or one branch of it.
             task_id=secrets.token_urlsafe(12),
+            # From the registration, never from the request. A caller that
+            # could name its own tenant could name somebody else's.
+            tenant=client.tenant,
             # The client registration is the ONLY ceiling here. There is no
             # human and no delegation chain underneath it, which is why an
             # empty allow-list has to mean zero rather than "unrestricted".

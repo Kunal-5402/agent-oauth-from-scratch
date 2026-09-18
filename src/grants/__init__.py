@@ -51,7 +51,9 @@ class GrantRegistry:
         return tuple(self._grants.values())
 
 
-def default_grant_registry(*, verifier: TokenVerifier, clients: ClientRepository) -> GrantRegistry:
+def default_grant_registry(
+    *, verifier: TokenVerifier, clients: ClientRepository, maximum_depth: int
+) -> GrantRegistry:
     """Every grant this server supports today.
 
     Adding a grant is adding one module and one entry here. It cannot reach the
@@ -60,6 +62,6 @@ def default_grant_registry(*, verifier: TokenVerifier, clients: ClientRepository
     return GrantRegistry(
         [
             ClientCredentialsGrant(),
-            TokenExchangeGrant(verifier=verifier, clients=clients),
+            TokenExchangeGrant(verifier=verifier, clients=clients, maximum_depth=maximum_depth),
         ]
     )

@@ -24,6 +24,7 @@ class RegisteredClient:
     status: str = ACTIVE
     secret_hash: str | None = None
     auth_method: str = "client_secret_post"
+    tenant: str = "default"
 
     def __post_init__(self) -> None:
         if not self.client_id or not self.subject:

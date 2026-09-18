@@ -51,6 +51,9 @@ ASSERTION_CLIENT_ID = "assertion-agent"
 TOOL_SECRET = "test-only-tool-secret"
 DOWNSTREAM_AUDIENCE = "sql-api"
 
+# A second account, to prove authority never crosses the boundary.
+OTHER_TENANT_SECRET = "test-only-other-tenant-secret"
+
 T = TypeVar("T")
 
 
@@ -179,6 +182,14 @@ def _seed_clients() -> tuple[RegisteredClient, ...]:
             auth_method="private_key_jwt",
             allowed_scopes=frozenset({"reports:read"}),
             allowed_audiences=frozenset({"test-resource"}),
+        ),
+        RegisteredClient(
+            client_id="other-tenant-agent",
+            subject="agent:other-tenant",
+            secret_hash=hash_secret(OTHER_TENANT_SECRET),
+            tenant="acme",
+            allowed_scopes=frozenset({"reports:read"}),
+            allowed_audiences=frozenset({"test-resource", DOWNSTREAM_AUDIENCE}),
         ),
         RegisteredClient(
             client_id="suspended-agent",
