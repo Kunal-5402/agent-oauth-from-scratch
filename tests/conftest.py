@@ -46,6 +46,14 @@ SUSPENDED_SECRET = "test-only-suspended-secret"
 # A client that holds no secret at all and can only authenticate by signing.
 ASSERTION_CLIENT_ID = "assertion-agent"
 
+# Token exchange needs at least 2 clients: one that holds authority, and one
+# that is about to act on it.
+TOOL_SECRET = "test-only-tool-secret"
+DOWNSTREAM_AUDIENCE = "sql-api"
+
+# A second account, to prove authority never crosses the boundary.
+OTHER_TENANT_SECRET = "test-only-other-tenant-secret"
+
 T = TypeVar("T")
 
 
@@ -148,13 +156,22 @@ def _seed_clients() -> tuple[RegisteredClient, ...]:
             subject="agent:reporting",
             secret_hash=hash_secret(REPORTING_SECRET),
             allowed_scopes=frozenset({"finance:read", "reports:read"}),
-            allowed_audiences=frozenset({"test-resource"}),
+            allowed_audiences=frozenset({"test-resource", DOWNSTREAM_AUDIENCE}),
         ),
         RegisteredClient(
             client_id="no-authority-agent",
             subject="agent:no-authority",
             secret_hash=hash_secret(NO_AUTHORITY_SECRET),
             allowed_scopes=frozenset(),
+        ),
+        RegisteredClient(
+            client_id="tool-agent",
+            subject="agent:sql-tool",
+            secret_hash=hash_secret(TOOL_SECRET),
+            # Its own ceiling is narrower than the reporting agent's. Authority
+            # passing through it can only shrink.
+            allowed_scopes=frozenset({"reports:read"}),
+            allowed_audiences=frozenset({"test-resource", DOWNSTREAM_AUDIENCE}),
         ),
         RegisteredClient(
             client_id=ASSERTION_CLIENT_ID,
@@ -165,6 +182,14 @@ def _seed_clients() -> tuple[RegisteredClient, ...]:
             auth_method="private_key_jwt",
             allowed_scopes=frozenset({"reports:read"}),
             allowed_audiences=frozenset({"test-resource"}),
+        ),
+        RegisteredClient(
+            client_id="other-tenant-agent",
+            subject="agent:other-tenant",
+            secret_hash=hash_secret(OTHER_TENANT_SECRET),
+            tenant="acme",
+            allowed_scopes=frozenset({"reports:read"}),
+            allowed_audiences=frozenset({"test-resource", DOWNSTREAM_AUDIENCE}),
         ),
         RegisteredClient(
             client_id="suspended-agent",
@@ -249,6 +274,7 @@ def integration_environment(
         settings=settings,
         signing_key=signing_key,
         clients=ClientRegistry(ClientRepository(pool)),
+        client_records=ClientRepository(pool),
         credentials=IssuedCredentialRepository(pool),
         client_keys=ClientKeyRepository(pool),
         replays=AssertionReplayRepository(pool),

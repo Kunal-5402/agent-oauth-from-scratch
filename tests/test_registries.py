@@ -12,7 +12,7 @@ import pytest
 
 from src.auth import ClientAuthRegistry, ClientSecretPost, PrivateKeyJwt
 from src.config import Settings
-from src.grants import ClientCredentialsGrant, GrantRegistry, default_grant_registry
+from src.grants import ClientCredentialsGrant, GrantRegistry, TokenExchangeGrant
 
 
 def test_every_advertised_grant_type_has_a_registered_handler(integration_environment):
@@ -21,7 +21,13 @@ def test_every_advertised_grant_type_has_a_registered_handler(integration_enviro
     )
 
     advertised = set(response.json()["grant_types_supported"])
-    assert advertised == set(default_grant_registry().grant_types())
+
+    # Every grant the code implements, and nothing else. Adding a module without
+    # registering it, or registering one that is not implemented, fails here.
+    assert advertised == {
+        ClientCredentialsGrant.grant_type,
+        TokenExchangeGrant.grant_type,
+    }
 
 
 def test_every_advertised_auth_method_has_a_registered_handler(integration_environment):
@@ -41,9 +47,8 @@ def test_response_types_come_from_the_installed_grants(integration_environment):
         f"{integration_environment.authorization_server_url}/.well-known/oauth-authorization-server"
     )
 
-    assert response.json()["response_types_supported"] == sorted(
-        default_grant_registry().response_types()
-    )
+    expected = ClientCredentialsGrant.response_types | TokenExchangeGrant.response_types
+    assert response.json()["response_types_supported"] == sorted(expected)
 
 
 def test_a_duplicate_grant_type_cannot_be_registered():
@@ -124,5 +129,15 @@ def test_the_token_endpoint_documents_its_request_body(integration_environment):
     schema = operation["requestBody"]["content"]["application/x-www-form-urlencoded"]["schema"]
 
     assert operation["requestBody"]["required"] is True
-    titles = {variant["title"] for variant in schema["oneOf"]}
-    assert titles == set(default_grant_registry().grant_types())
+    # Assert on the grant_type each variant documents, not on its title. A
+    # readable title is for a person; the enum is what a client has to send.
+    documented = {variant["properties"]["grant_type"]["enum"][0] for variant in schema["oneOf"]}
+    advertised = set(
+        httpx.get(
+            f"{integration_environment.authorization_server_url}"
+            "/.well-known/oauth-authorization-server"
+        ).json()["grant_types_supported"]
+    )
+    # Every advertised grant documents its own body, so /docs stays correct as
+    # grants are added rather than needing a hand-maintained schema.
+    assert documented == advertised

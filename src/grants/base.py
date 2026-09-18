@@ -29,6 +29,12 @@ class GrantResult:
     # only reports what it resolved, so the decision stays in the shared path.
     principal_status: str = "active"
 
+    # Which single service this token is for. None means the server default,
+    # which only the root grants use. Every derived token names one explicitly.
+    audience: str | None = None
+    issued_token_type: str | None = None
+    tenant: str | None = None
+
     # Filled in by later phases. They are declared now because the pipeline has
     # to apply them uniformly, and a grant added later must not be able to
     # introduce a field the shared path does not already honour.
@@ -49,7 +55,7 @@ class Grant(Protocol):
     requires_client_auth: bool
     response_types: frozenset[str]
 
-    def resolve(self, form: TokenForm, client: RegisteredClient | None) -> GrantResult:
+    async def resolve(self, form: TokenForm, client: RegisteredClient | None) -> GrantResult:
         """Step 1 of the pipeline. The only step that differs per grant."""
 
     def metadata(self, settings: object) -> dict[str, object]:

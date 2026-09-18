@@ -60,6 +60,7 @@ def build_application(settings: Settings) -> FastAPI:
         settings=settings,
         signing_key=KeyStore(settings.key_directory).load_or_create(),
         clients=ClientRegistry(clients),
+        client_records=ClientRepository(pool),
         credentials=IssuedCredentialRepository(pool),
         client_keys=ClientKeyRepository(pool),
         replays=AssertionReplayRepository(pool),
