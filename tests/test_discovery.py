@@ -32,7 +32,10 @@ def test_metadata_describes_the_running_authorization_server(integration_environ
     assert metadata["jwks_uri"] == (
         f"{integration_environment.authorization_server_url}/.well-known/jwks.json"
     )
-    assert metadata["grant_types_supported"] == ["client_credentials"]
+    assert metadata["grant_types_supported"] == [
+        "client_credentials",
+        "urn:ietf:params:oauth:grant-type:token-exchange",
+    ]
     assert metadata["response_types_supported"] == []
     assert metadata["token_endpoint_auth_methods_supported"] == [
         "client_secret_post",

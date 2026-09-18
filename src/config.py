@@ -37,6 +37,9 @@ class Settings:
     resource_audience: str
     access_token_ttl_seconds: int = 600
     database_url: str = "postgresql://oauth:oauth@127.0.0.1:5433/oauth"
+    # Rule 2. An uncapped tree grows until nobody can audit it and no
+    # revocation can catch up. A cap turns it into something a person can read.
+    max_delegation_depth: int = 3
     metadata_overlay: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -46,6 +49,8 @@ class Settings:
             raise ValueError("resource_audience must not be empty")
         if not self.database_url:
             raise ValueError("database_url must not be empty")
+        if not 1 <= self.max_delegation_depth <= 10:
+            raise ValueError("max_delegation_depth must be between 1 and 10")
         if not 1 <= self.access_token_ttl_seconds <= 3600:
             raise ValueError("access_token_ttl_seconds must be between 1 and 3600")
 

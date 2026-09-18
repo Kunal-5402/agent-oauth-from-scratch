@@ -88,10 +88,10 @@ def test_it_works_for_a_second_grant_without_touching_any_grant_module(
     Adding one file under src/auth/ made the method available to every grant. If
     this ever needs a change inside a grant module, the separation has been lost.
     """
-    from src.grants import default_grant_registry
-
-    registered = default_grant_registry().grant_types()
-    assert "client_credentials" in registered
+    registered = httpx.get(
+        f"{integration_environment.authorization_server_url}/.well-known/oauth-authorization-server"
+    ).json()["grant_types_supported"]
+    assert len(registered) >= 2, "this test proves nothing with a single grant"
 
     for grant_type in registered:
         assertion = build_assertion(

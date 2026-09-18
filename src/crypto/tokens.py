@@ -115,8 +115,21 @@ class TokenVerifier:
         self._issuer = issuer
         self._signing_key = signing_key
 
+    def verify_any_audience(self, token: str) -> dict[str, Any]:
+        """Verify everything except which audience the token names.
+
+        A token being exchanged was issued for where it is now, not for where it
+        is going, so the exchange cannot predict its ``aud``. Issuer, algorithm,
+        key, type, expiry and the required claims are all still checked, and
+        ``aud`` must still be present.
+        """
+        return self._verify(token, audience=None)
+
     def verify(self, token: str, *, audience: str) -> dict[str, Any]:
         """Return the claims, or raise. Never returns an unverified value."""
+        return self._verify(token, audience=audience)
+
+    def _verify(self, token: str, *, audience: str | None) -> dict[str, Any]:
         try:
             header = jwt.get_unverified_header(token)
         except jwt.InvalidTokenError as exc:
@@ -137,7 +150,10 @@ class TokenVerifier:
                 algorithms=[ALGORITHM],
                 issuer=self._issuer,
                 audience=audience,
-                options={"require": list(REQUIRED_CLAIMS)},
+                options={
+                    "require": list(REQUIRED_CLAIMS),
+                    "verify_aud": audience is not None,
+                },
             )
         except jwt.InvalidTokenError as exc:
             # One message for every failure. A caller probing with forged tokens
